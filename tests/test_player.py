@@ -1,4 +1,4 @@
-class TestPlayer(object):
+class TestPlayer:
     @staticmethod
     async def test_games_played(loop, player):
         games_played = await player.games_played

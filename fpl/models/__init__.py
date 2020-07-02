@@ -1,10 +1,10 @@
-from .classic_league import ClassicLeague
+from .leagues import ClassicLeague, H2HLeague
 from .fixture import Fixture
 from .gameweek import Gameweek
-from .h2h_league import H2HLeague
 from .player import Player
 from .team import Team
 from .user import User
+from .match import H2HMatch
 
-__all__ = ("ClassicLeague", "Fixture", "Gameweek", "H2HLeague", "Player",
-           "Team", "User")
+__all__ = ("ClassicLeague", "H2HLeague", "Fixture", "Gameweek", "Player",
+           "Team", "User", "H2HMatch")

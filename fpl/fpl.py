@@ -24,21 +24,63 @@ Fantasy Premier League API:
 * /transfers
 """
 import asyncio
-import itertools
+import json
 import os
-
 import requests
 
+from collections import namedtuple, defaultdict
+from itertools import chain
+
 from .constants import API_URLS
-from .models.classic_league import ClassicLeague
+from .dictionaries.api_keywords import *
+from .models.leagues import ClassicLeague, H2HLeague
 from .models.fixture import Fixture
 from .models.gameweek import Gameweek
-from .models.h2h_league import H2HLeague
-from .models.player import Player, PlayerSummary
+from .models.player import Player, PlayerSummary, PlayerType
 from .models.team import Team
 from .models.user import User
-from .utils import (average, fetch, get_current_user, logged_in,
-                    position_converter, scale, team_converter)
+from .utils import (average, fetch, get_current_user, logged_in, position_converter, scale, team_converter)
+
+Phase = namedtuple('Phase', ['id', 'name', 'start_event', 'stop_event'])
+PlayerStats = namedtuple('StatsElement', ['label', 'name'])
+PointsExtrema = namedtuple('PointsExtrema', ['min', 'max'])
+TeamAverage = namedtuple('TeamAverage', ['home', 'away'])
+
+# FixtureTotalPoints = namedtuple('FixtureTotalPoints')
+
+
+class GameSettings:
+    def __init__(self, game_settings):
+        self.cup_qualifying_method = game_settings.get(CUP_QUALIFYING_METHOD)
+        self.cup_start_event_id = game_settings.get(CUP_START_EVENT_ID)
+        self.cup_stop_event_id = game_settings.get(CUP_STOP_EVENT_ID)
+        self.cup_type = game_settings.get(CUP_TYPE)
+        self.league_h2h_tiebreak_stats = game_settings.get(LEAGUE_H2H_TIEBREAK_STATS)
+        self.league_join_private_max = game_settings.get(LEAGUE_JOIN_PRIVATE_MAX)
+        self.league_join_public_max = game_settings.get(LEAGUE_JOIN_PUBLIC_MAX)
+        self.league_ko_first_instead_of_random = game_settings.get(LEAGUE_KO_FIRST_INSTEAD_OF_RANDOM)
+        self.league_max_ko_rounds_private_h2h = game_settings.get(LEAGUE_MAX_KO_ROUNDS_PRIVATE_H2H)
+        self.league_max_size_private_h2h = game_settings.get(LEAGUE_MAX_SIZE_PRIVATE_H2H)
+        self.league_max_size_public_classic = game_settings.get(LEAGUE_MAX_SIZE_PUBLIC_CLASSIC)
+        self.league_max_size_public_h2h = game_settings.get(LEAGUE_MAX_SIZE_PUBLIC_H2H)
+        self.league_points_h2h_draw = game_settings.get(LEAGUE_POINTS_H2H_DRAW)
+        self.league_points_h2h_lose = game_settings.get(LEAGUE_POINTS_H2H_LOSE)
+        self.league_points_h2h_win = game_settings.get(LEAGUE_POINTS_H2H_WIN)
+        self.league_prefix_public = game_settings.get(LEAGUE_PREFIX_PUBLIC)
+        self.squad_squadplay = game_settings.get(SQUAD_SQUADPLAY)
+        self.squad_squadsize = game_settings.get(SQUAD_SQUADSIZE)
+        self.squad_team_limit = game_settings.get(SQUAD_TEAM_LIMIT)
+        self.squad_total_spend = game_settings.get(SQUAD_TOTAL_SPEND)
+        self.stats_form_days = game_settings.get(STATS_FORM_DAYS)
+        self.sys_vice_captain_enabled = game_settings.get(SYS_VICE_CAPTAIN_ENABLED)
+        self.timezone = game_settings.get(TIMEZONE)
+        self.transfers_sell_on_fee = game_settings.get(TRANSFERS_SELL_ON_FEE)
+        self.ui_currency_multiplier = game_settings.get(UI_CURRENCY_MULTIPLIER)
+        self.ui_special_shirt_exclusions = game_settings.get(UI_SPECIAL_SHIRT_EXCLUSIONS)
+        self.ui_use_special_shirts = game_settings.get(UI_USE_SPECIAL_SHIRTS)
+
+    def __repr__(self):
+        return f'GameSettings()'
 
 
 class FPL:
@@ -46,19 +88,28 @@ class FPL:
 
     def __init__(self, session):
         self.session = session
-
         # TODO: use aiohttp instead
         static = requests.get(API_URLS["static"]).json()
-        for k, v in static.items():
-            try:
-                v = {w["id"]: w for w in v}
-            except (KeyError, TypeError):
-                pass
-            setattr(self, k, v)
-        setattr(self,
-                "current_gameweek",
-                next(event for event in static["events"]
-                     if event["is_current"])["id"])
+        self.teams = {team[ID]: Team(team, self.session) for team in static.get(TEAMS)}
+        self.players = {player[ID]: Player(player, self.session) for player in static.get(ELEMENTS)}
+        self.total_users = static.get(TOTAL_PLAYERS)
+        self.player_stats = [
+            PlayerStats(label=statistic[LABEL], name=statistic[NAME])
+            for statistic in static.get(ELEMENT_STATS)
+        ]
+        self.player_types = [PlayerType(player_type) for player_type in static.get(ELEMENT_TYPES)]
+        self.settings = GameSettings(static.get(GAME_SETTINGS))
+        self.phases = [
+            Phase(id=phase[ID], name=phase[NAME], start_event=phase[START_EVENT], stop_event=phase[STOP_EVENT])
+            for phase in static.get(PHASES)
+        ]
+
+        self.gameweeks = {}
+        for event in static.get(EVENTS):
+            gameweek = Gameweek(event)
+            if gameweek.is_current:
+                self.current_gameweek_id = gameweek.id
+            self.gameweeks[gameweek.id] = gameweek
 
     async def get_user(self, user_id=None, return_json=False):
         """Returns the user with the given ``user_id``.
@@ -84,114 +135,13 @@ class FPL:
                 raise Exception("You must log in before using `get_user` if "
                                 "you do not provide a user ID.")
 
-        url = API_URLS["user"].format(user_id)
-        user = await fetch(self.session, url)
+        user = await fetch(self.session, API_URLS[USER].format(user_id))
 
         if return_json:
             return user
         return User(user, session=self.session)
 
-    async def get_teams(self, team_ids=None, return_json=False):
-        """Returns either a list of *all* teams, or a list of teams with IDs in
-        the optional ``team_ids`` list.
-
-        Information is taken from:
-            https://fantasy.premierleague.com/api/bootstrap-static/
-
-        :param list team_ids: (optional) List containing the IDs of teams.
-            If not set a list of *all* teams will be returned.
-        :param return_json: (optional) Boolean. If ``True`` returns a list of
-            ``dict``s, if ``False`` returns a list of  :class:`Team` objects.
-            Defaults to ``False``.
-        :type return_json: bool
-        :rtype: list
-        """
-        teams = getattr(self, "teams")
-
-        if team_ids:
-            team_ids = set(team_ids)
-            teams = [team for team in teams.values() if team["id"] in team_ids]
-        else:
-            teams = [team for team in teams.values()]
-
-        if return_json:
-            return teams
-
-        return [Team(team_information, self.session)
-                for team_information in teams]
-
-    async def get_team(self, team_id, return_json=False):
-        """Returns the team with the given ``team_id``.
-
-        Information is taken from:
-            https://fantasy.premierleague.com/api/bootstrap-static/
-
-        :param team_id: A team's ID.
-        :type team_id: string or int
-        :param return_json: (optional) Boolean. If ``True`` returns a ``dict``,
-            if ``False`` returns a :class:`Team` object. Defaults to ``False``.
-        :type return_json: bool
-        :rtype: :class:`Team` or ``dict``
-
-        For reference here is the mapping from team ID to team name:
-
-        .. code-block:: none
-
-             1 - Arsenal
-             2 - Bournemouth
-             3 - Brighton
-             4 - Burnley
-             5 - Cardiff
-             6 - Chelsea
-             7 - Crystal Palace
-             8 - Everton
-             9 - Fulham
-            10 - Huddersfield
-            11 - Leicester
-            12 - Liverpool
-            13 - Man City
-            14 - Man Utd
-            15 - Newcastle
-            16 - Southampton
-            17 - Spurs
-            18 - Watford
-            19 - West Ham
-            20 - Wolves
-        """
-        assert 0 < int(
-            team_id) < 21, "Team ID must be a number between 1 and 20."
-        teams = getattr(self, "teams")
-        team = next(team for team in teams.values()
-                    if team["id"] == int(team_id))
-
-        if return_json:
-            return team
-
-        return Team(team, self.session)
-
-    async def get_player_summary(self, player_id, return_json=False):
-        """Returns a summary of the player with the given ``player_id``.
-
-        Information is taken from e.g.:
-            https://fantasy.premierleague.com/api/element-summary/1/
-
-        :param int player_id: A player's ID.
-        :param return_json: (optional) Boolean. If ``True`` returns a ``dict``,
-            if ``False`` returns a :class:`PlayerSummary` object. Defaults to
-            ``False``.
-        :type return_json: bool
-        :rtype: :class:`PlayerSummary` or ``dict``
-        """
-        assert int(player_id) > 0, "Player's ID must be a positive number"
-        url = API_URLS["player"].format(player_id)
-        player_summary = await fetch(self.session, url)
-
-        if return_json:
-            return player_summary
-
-        return PlayerSummary(player_summary)
-
-    async def get_player_summaries(self, player_ids, return_json=False):
+    async def get_player_summaries(self, *player_ids, return_json=False):
         """Returns a list of summaries of players whose ID are
         in the ``player_ids`` list.
 
@@ -205,98 +155,25 @@ class FPL:
         :type return_json: bool
         :rtype: list
         """
-        if not player_ids:
-            return []
+        if player_ids:
+            tasks = [
+                asyncio.ensure_future(fetch(self.session, API_URLS[PLAYER].format(player_id)))
+                for player_id in player_ids if player_id
+            ]
+            player_summaries = await asyncio.gather(*tasks)
+            if return_json:
+                return json.dumps(player_summaries)
+            return [PlayerSummary(summary, player_id) for summary, player_id in zip(player_summaries, player_ids)]
+        return []
 
-        tasks = [asyncio.ensure_future(
-                 fetch(self.session, API_URLS["player"].format(player_id)))
-                 for player_id in player_ids]
-
-        player_summaries = await asyncio.gather(*tasks)
-
-        if return_json:
-            return player_summaries
-
-        return [PlayerSummary(player_summary)
-                for player_summary in player_summaries]
-
-    async def get_player(self, player_id, players=None, include_summary=False,
-                         return_json=False):
-        """Returns the player with the given ``player_id``.
-
-        Information is taken from e.g.:
-            https://fantasy.premierleague.com/api/bootstrap-static/
-            https://fantasy.premierleague.com/api/element-summary/1/ (optional)
-
-        :param player_id: A player's ID.
-        :type player_id: string or int
-        :param list players: (optional) A list of players.
-        :param bool include_summary: (optional) Includes a player's summary
-            if ``True``.
-        :param return_json: (optional) Boolean. If ``True`` returns a ``dict``,
-            if ``False`` returns a :class:`Player` object. Defaults to
-            ``False``.
-        :rtype: :class:`Player` or ``dict``
-        :raises ValueError: Player with ``player_id`` not found
-        """
-        if not players:
-            players = getattr(self, "elements")
-
-        try:
-            player = next(player for player in players.values()
-                          if player["id"] == player_id)
-        except StopIteration:
-            raise ValueError(f"Player with ID {player_id} not found")
-
-        if include_summary:
-            player_summary = await self.get_player_summary(
-                player["id"], return_json=True)
-            player.update(player_summary)
-
-        if return_json:
-            return player
-
-        return Player(player, self.session)
-
-    async def get_players(self, player_ids=None, include_summary=False,
-                          return_json=False):
-        """Returns either a list of *all* players, or a list of players whose
-        IDs are in the given ``player_ids`` list.
-
-        Information is taken from e.g.:
-            https://fantasy.premierleague.com/api/bootstrap-static/
-            https://fantasy.premierleague.com/api/element-summary/1/ (optional)
-
-        :param list player_ids: (optional) A list of player IDs
-        :param boolean include_summary: (optional) Includes a player's summary
-            if ``True``.
-        :param return_json: (optional) Boolean. If ``True`` returns a list of
-            ``dict``s, if ``False`` returns a list of  :class:`Player`
-            objects. Defaults to ``False``.
-        :type return_json: bool
-        :rtype: list
-        """
-        players = getattr(self, "elements")
-
-        if not player_ids:
-            player_ids = [player["id"] for player in players.values()]
-
-        tasks = [asyncio.ensure_future(
-                 self.get_player(
-                     player_id, players, include_summary, return_json))
-                 for player_id in player_ids]
-        players = await asyncio.gather(*tasks)
-
-        return players
-
-    async def get_fixture(self, fixture_id, return_json=False):
+    async def get_fixtures(self, *fixtures_ids, gameweek=0, return_json=False):
         """Returns the fixture with the given ``fixture_id``.
 
         Information is taken from e.g.:
             https://fantasy.premierleague.com/api/fixtures/
             https://fantasy.premierleague.com/api/fixtures/?event=1
 
-        :param int fixture_id: The fixture's ID.
+        :param tuple fixtures_ids: The fixtures IDs. If empty, it will take all of fixtures.
         :param return_json: (optional) Boolean. If ``True`` returns a ``dict``,
             if ``False`` returns a :class:`Fixture` object. Defaults to
             ``False``.
@@ -304,120 +181,21 @@ class FPL:
         :rtype: :class:`Fixture` or ``dict``
         :raises ValueError: if fixture with ``fixture_id`` not found
         """
-        fixtures = await fetch(self.session, API_URLS["fixtures"])
-
-        try:
-            fixture = next(fixture for fixture in fixtures
-                           if fixture["id"] == fixture_id)
-        except StopIteration:
-            raise ValueError(f"Fixture with ID {fixture_id} not found")
-        fixture_gameweek = fixture["event"]
-
-        gameweek_fixtures = await fetch(
-            self.session,
-            API_URLS["gameweek_fixtures"].format(fixture_gameweek))
-
-        try:
-            fixture = next(fixture for fixture in gameweek_fixtures
-                           if fixture["id"] == fixture_id)
-        except StopIteration:
-            raise ValueError(
-                f"Fixture with ID {fixture_id} not found in gameweek fixtures")
-
+        if not fixtures_ids:
+            fixtures_ids = range(380)
+        if gameweek:
+            fixtures = await fetch(self.session, API_URLS[GAMEWEEK_FIXTURES].format(gameweek))
+        else:
+            fixtures = await fetch(self.session, API_URLS[FIXTURES])
+        fixtures_list = []
+        for fixture in fixtures:
+            if fixture.get(ID) in fixtures_ids:
+                fixtures_list.append(fixture)
         if return_json:
-            return fixture
+            return json.dumps(fixtures_list)
+        return [Fixture(fixture) for fixture in fixtures_list]
 
-        return Fixture(fixture)
-
-    async def get_fixtures_by_id(self, fixture_ids, return_json=False):
-        """Returns a list of all fixtures with IDs included in the
-        `fixture_ids` list.
-
-        Information is taken from e.g.:
-            https://fantasy.premierleague.com/api/fixtures/
-            https://fantasy.premierleague.com/api/fixtures/?event=1
-
-        :param list fixture_ids: A list of fixture IDs.
-        :param return_json: (optional) Boolean. If ``True`` returns a list of
-            ``dict``s, if ``False`` returns a list of  :class:`Fixture`
-            objects. Defaults to ``False``.
-        :type return_json: bool
-        :rtype: list
-        """
-        if not fixture_ids:
-            return []
-
-        fixtures = await fetch(self.session, API_URLS["fixtures"])
-        fixture_gameweeks = set(fixture["event"] for fixture in fixtures
-                                if fixture["id"] in fixture_ids)
-        tasks = [asyncio.ensure_future(
-                 fetch(self.session,
-                       API_URLS["gameweek_fixtures"].format(gameweek)))
-                 for gameweek in fixture_gameweeks]
-
-        gameweek_fixtures = await asyncio.gather(*tasks)
-        merged_fixtures = list(itertools.chain(*gameweek_fixtures))
-
-        fixtures = [fixture for fixture in merged_fixtures
-                    if fixture["id"] in fixture_ids]
-
-        if return_json:
-            return fixtures
-
-        return [Fixture(fixture) for fixture in fixtures]
-
-    async def get_fixtures_by_gameweek(self, gameweek, return_json=False):
-        """Returns a list of all fixtures of the given ``gameweek``.
-
-        Information is taken from e.g.:
-            https://fantasy.premierleague.com/api/fixtures/
-            https://fantasy.premierleague.com/api/fixtures/?event=1
-
-        :param gameweek: A gameweek.
-        :type gameweek: string or int
-        :param return_json: (optional) Boolean. If ``True`` returns a list of
-            ``dict``s, if ``False`` returns a list of  :class:`Player`
-            objects. Defaults to ``False``.
-        :type return_json: bool
-        :rtype: list
-        """
-        fixtures = await fetch(self.session,
-                               API_URLS["gameweek_fixtures"].format(gameweek))
-
-        if return_json:
-            return fixtures
-
-        return [Fixture(fixture) for fixture in fixtures]
-
-    async def get_fixtures(self, return_json=False):
-        """Returns a list of *all* fixtures.
-
-        Information is taken from e.g.:
-            https://fantasy.premierleague.com/api/fixtures/
-            https://fantasy.premierleague.com/api/fixtures/?event=1
-
-        :param return_json: (optional) Boolean. If ``True`` returns a list of
-            ``dict``s, if ``False`` returns a list of  :class:`Fixture`
-            objects. Defaults to ``False``.
-        :type return_json: bool
-        :rtype: list
-        """
-        gameweeks = range(1, 39)
-        tasks = [asyncio.ensure_future(
-                 fetch(self.session,
-                       API_URLS["gameweek_fixtures"].format(gameweek)))
-                 for gameweek in gameweeks]
-
-        gameweek_fixtures = await asyncio.gather(*tasks)
-        fixtures = list(itertools.chain(*gameweek_fixtures))
-
-        if return_json:
-            return fixtures
-
-        return [Fixture(fixture) for fixture in fixtures]
-
-    async def get_gameweek(self, gameweek_id, include_live=False,
-                           return_json=False):
+    async def get_gameweek(self, gameweek_id, include_live=False, return_json=False):
         """Returns the gameweek with the ID ``gameweek_id``.
 
         Information is taken from e.g.:
@@ -425,7 +203,7 @@ class FPL:
             https://fantasy.premierleague.com/api/event/1/live/
 
         :param int gameweek_id: A gameweek's ID.
-        :param bool include_summary: (optional) Includes a gameweek's live data
+        :param bool include_live: (optional) Includes a gameweek's live data
             if ``True``.
         :param return_json: (optional) Boolean. If ``True`` returns a ``dict``,
             if ``False`` returns a :class:`Gameweek` object. Defaults to
@@ -442,23 +220,22 @@ class FPL:
                 gameweek["id"] == gameweek_id)
         except StopIteration:
             raise ValueError(f"Gameweek with ID {gameweek_id} not found")
-
         if include_live:
-            live_gameweek = await fetch(
-                self.session, API_URLS["gameweek_live"].format(gameweek_id))
+            live_gameweek = await fetch(self.session, API_URLS["gameweek_live"].format(gameweek_id))
 
             # Convert element list to dict
             live_gameweek["elements"] = {
-                element["id"]: element for element in live_gameweek["elements"]}
+                element["id"]: element for element in live_gameweek["elements"]
+            }
 
             # Include live bonus points
             if not static_gameweek["finished"]:
-                fixtures = await self.get_fixtures_by_gameweek(gameweek_id)
+                fixtures = await self.get_fixtures(gameweek=gameweek_id)
                 fixtures = filter(lambda f: not f.finished, fixtures)
                 bonus_for_gameweek = []
 
                 for fixture in fixtures:
-                    bonus = fixture.get_bonus(provisional=True)
+                    bonus = fixture.bonus(provisional=True)
                     bonus_for_gameweek.extend(bonus["a"] + bonus["h"])
 
                 bonus_for_gameweek = {bonus["element"]: bonus["value"]
@@ -468,40 +245,12 @@ class FPL:
                     if live_gameweek["elements"][player_id]["stats"]["bonus"] == 0:
                         live_gameweek["elements"][player_id]["stats"]["bonus"] += bonus_points
                         live_gameweek["elements"][player_id]["stats"]["total_points"] += bonus_points
-
             static_gameweek.update(live_gameweek)
 
         if return_json:
             return static_gameweek
 
         return Gameweek(static_gameweek)
-
-    async def get_gameweeks(self, gameweek_ids=None, include_live=False,
-                            return_json=False):
-        """Returns either a list of *all* gamweeks, or a list of gameweeks
-        whose IDs are in the ``gameweek_ids`` list.
-
-        Information is taken from e.g.:
-            https://fantasy.premierleague.com/api/bootstrap-static/
-            https://fantasy.premierleague.com/api/event/1/live/
-
-        :param list gameweek_ids: (optional) A list of gameweek IDs.
-        :param return_json: (optional) Boolean. If ``True`` returns a list of
-            ``dict``s, if ``False`` returns a list of  :class:`Gameweek`
-            objects. Defaults to ``False``.
-        :type return_json: bool
-        :rtype: list
-        """
-
-        if not gameweek_ids:
-            gameweek_ids = range(1, 39)
-
-        tasks = [asyncio.ensure_future(
-                 self.get_gameweek(gameweek_id, include_live, return_json))
-                 for gameweek_id in gameweek_ids]
-
-        gameweeks = await asyncio.gather(*tasks)
-        return gameweeks
 
     async def get_classic_league(self, league_id, return_json=False):
         """Returns the classic league with the given ``league_id``. Requires
@@ -583,7 +332,7 @@ class FPL:
                 reason = response.url.query["reason"]
                 raise ValueError(f"Login not successful, reason: {reason}")
 
-    async def get_points_against(self):
+    async def get_team_points_against(self, team_id=1):
         """Returns a dictionary containing the points scored against all teams
         in the Premier League, split by position and location.
 
@@ -592,65 +341,55 @@ class FPL:
         .. code-block:: javascript
 
           {
-            "Man City": {
-                "all": {
-                "H": [3, ..., 1],
-                "A": [2, ..., 2]
-                },
-                "goalkeeper": {
-                "H": [3, ..., 3],
-                "A": [2, ..., 3]
-                },
-                "defender": {
-                "H": [1, ..., 2],
-                "A": [4, ..., 1]
-                },
-                "midfielder": {
-                "H": [2, ..., 1],
-                "A": [2, ..., 2]
-                },
-                "forward": {
-                "H": [1, ..., 2],
-                "A": [6, ..., 1]
-                }
+            "away": {
+                "opponent_id": {
+                    "forward": 13,
+                    "defender": 9,
+                    "goalkeeper": 2,
+                    "midfielder": 12
+                    }
+                ...
             },
+            "home": {
+                "opponent_id": {
+                    "forward": 10,
+                    "defender": 13,
+                    "goalkeeper": 4,
+                    "midfielder": 15
+                    }
+                ...
+            }
             ...
           }
 
-        :rtype: dict
+        :rtype: defaultdict
         """
-        players = await self.get_players(
-            include_summary=True, return_json=True)
-        points_against = {}
-
-        for player in players:
-            position = position_converter(player["element_type"]).lower()
-
-            for fixture in player["history"]:
-                if fixture["minutes"] == 0:
-                    continue
-
-                points = fixture["total_points"]
-                opponent = team_converter(fixture["opponent_team"])
-                location = "H" if fixture["was_home"] else "A"
-
-                points_against.setdefault(
-                    opponent,
-                    {
-                        "all": {"H": [], "A": []},
-                        "goalkeeper": {"H": [], "A": []},
-                        "defender": {"H": [], "A": []},
-                        "midfielder": {"H": [], "A": []},
-                        "forward": {"H": [], "A": []}
-                    }
-                )
-
-                points_against[opponent]["all"][location].append(points)
-                points_against[opponent][position][location].append(points)
-
+        print(team_id)
+        points_against = defaultdict(defaultdict)
+        fixtures = await self.teams[team_id].get_team_fixtures()
+        for location in fixtures.keys():
+            for fixture in fixtures[location]:
+                opponent_id = fixture.team_home if location == AWAY else fixture.team_away
+                fixture_position_points = defaultdict(list)
+                players_summaries = await self.get_player_summaries(*getattr(fixture.players, location))
+                for player_summary in players_summaries:
+                    position = position_converter(self.players[player_summary.player_id].element_type).lower()
+                    points = player_summary.played_fixtures[fixture.id].total_points
+                    fixture_position_points[position].append(points)
+                points_against[location][opponent_id] = fixture_position_points
         return points_against
 
-    async def FDR(self):
+    def get_team_average_per_location(self, team_points_against):
+        """
+
+        """
+        all_values = {AWAY: [], HOME: []}
+        for location, fixtures in team_points_against.items():
+            for fixture in fixtures.values():
+                all_values[location].extend(chain(*fixture.values()))
+        return {AWAY: average(all_values[AWAY]), HOME: average(all_values[HOME])}
+
+    async def fdr(self):
         """Creates a new Fixture Difficulty Ranking (FDR) based on the number
         of points each team gives up to players in the Fantasy Premier League.
         These numbers are also between 1.0 and 5.0 to give a similar ranking
@@ -710,74 +449,47 @@ class FPL:
 
         :rtype: dict
         """
-        def average_points_against(points_against):
-            """Returns a dict with the average points scored against all teams,
-            per position and location.
 
-            :param dict points_against: A dict containing the points scored
-                against each team in the Premier League.
-            :rtype: dict
-            """
-            for team, positions in points_against.items():
-                for position in positions.values():
-                    position["H"] = average(position["H"])
-                    position["A"] = average(position["A"])
-
-                points_against[team] = positions
-
-            return points_against
-
-        def get_extrema(points_against):
+        def get_extrema(teams_averages):
             """Returns the extrema for each position and location.
 
-            :param dict points_against: A dict containing the points scored
+            :param dict teams_averages: A dict containing the points scored
                 against each team in the Premier League.
             :rtype: dict
             """
-            averages = {}
-            for _, positions in points_against.items():
-                for position, average in positions.items():
-                    averages.setdefault(position, {"H": [], "A": []})
-                    averages[position]["H"].append(average["H"])
-                    averages[position]["A"].append(average["A"])
+            return {
+                AWAY: PointsExtrema(
+                    min=min([team.away for team in teams_averages.values()]),
+                    max=max([team.away for team in teams_averages.values()])
+                ),
+                HOME: PointsExtrema(
+                    min=min([team.home for team in teams_averages.values()]),
+                    max=max([team.home for team in teams_averages.values()])
+                )}
 
-            for position, locations in averages.items():
-                min_h = min(locations["H"])
-                min_a = min(locations["A"])
-                max_h = max(locations["H"])
-                max_a = max(locations["A"])
-                averages[position]["H"] = [min_h, max_h]
-                averages[position]["A"] = [min_a, max_a]
-
-            return averages
-
-        def calculate_fdr(average_points, extrema):
+        def calculate_fdr(teams_averages, extrema):
             """Returns a dict containing the FDR for each team, which is
             calculated by scaling the average points conceded per position
             between 1.0 and 5.0 using the given extrema.
 
-            :param dict points_against: A dict containing the points scored
+            :param dict team_avg_per_position: A dict containing the points scored
                 against each team in the Premier League.
             :param dict extrema: A dict containing the extrema for each
                 position and location.
             :rtype: dict
             """
-            for team, positions in average_points.items():
-                for position, locations in positions.items():
-                    min_h, max_h = extrema[position]["H"]
-                    min_a, max_a = extrema[position]["A"]
-
-                    fdr_h = scale(locations["H"], 5.0, 1.0, min_h, max_h)
-                    fdr_a = scale(locations["A"], 5.0, 1.0, min_a, max_a)
-
-                    average_points[team][position]["H"] = fdr_h
-                    average_points[team][position]["A"] = fdr_a
-
-            return average_points
-
-        points_against = await self.get_points_against()
-        average_points = average_points_against(points_against)
-        extrema = get_extrema(average_points)
-        fdr = calculate_fdr(average_points, extrema)
-
+            fdr = {}
+            for team_id, averages in teams_averages.items():
+                fdr[team_converter(team_id)] = {
+                    HOME: scale(averages.home, 5.0, 1.0, extrema[HOME].min, extrema[HOME].max),
+                    AWAY: scale(averages.away, 5.0, 1.0, extrema[AWAY].min, extrema[AWAY].max)
+                }
+            return fdr
+        teams_averages = {}
+        for team_id in range(1, 21):
+            team_points_against = await self.get_team_points_against(team_id)
+            team_avg_per_position = self.get_team_average_per_location(team_points_against)
+            teams_averages[team_id] = TeamAverage(home=team_avg_per_position[HOME], away=team_avg_per_position[AWAY])
+        extrema = get_extrema(teams_averages)
+        fdr = calculate_fdr(teams_averages, extrema)
         return fdr

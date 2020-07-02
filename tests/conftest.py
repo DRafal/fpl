@@ -2,10 +2,9 @@ import aiohttp
 import pytest
 
 from fpl import FPL
-from fpl.models import Fixture, H2HLeague, User, ClassicLeague, Team, Gameweek
-from tests.test_classic_league import classic_league_data
-from tests.test_fixture import fixture_data
-from tests.test_h2h_league import h2h_league_data
+from fpl.models import Fixture, User, ClassicLeague, Team, Gameweek, H2HLeague
+from tests.test_leagues import classic_league_data, h2h_league_data
+from tests.test_fixture import fixture_data_finished
 from tests.test_team import team_data
 from tests.test_user import user_data
 from tests.test_gameweek import gameweek_data
@@ -50,7 +49,7 @@ async def team():
 
 @pytest.fixture()
 def fixture():
-    return Fixture(fixture_data)
+    return Fixture(fixture_data_finished)
 
 
 @pytest.fixture()

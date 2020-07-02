@@ -1,624 +1,661 @@
-from fpl.models.fixture import Fixture
+from fpl.dictionaries.api_keywords import *
+from fpl.models.fixture import Fixture, FixturePlayers, PlayerEvent, EMPTY_FIXTURE_PLAYERS
 
-fixture_data = {
-    "code": 1059760,
-    "event": 6,
-    "finished": True,
-    "finished_provisional": True,
-    "id": 59,
-    "kickoff_time": "2019-09-20T19:00:00Z",
-    "minutes": 90,
-    "provisional_start_time": False,
-    "started": True,
-    "team_a": 3,
-    "team_a_score": 3,
-    "team_h": 16,
-    "team_h_score": 1,
-    "stats": [
+fixture_data_finished = {
+    CODE: 1059760,
+    EVENT: 6,
+    FINISHED: True,
+    FINISHED_PROVISIONAL: True,
+    ID: 59,
+    KICKOFF_TIME: "2019-09-20T19:00:00Z",
+    MINUTES: 90,
+    PROVISIONAL_START_TIME: False,
+    STARTED: True,
+    TEAM_AWAY: 3,
+    TEAM_AWAY_SCORE: 3,
+    TEAM_HOME: 16,
+    TEAM_HOME_SCORE: 1,
+    STATS: [
         {
-            "identifier": "goals_scored",
-            "a": [
+            IDENTIFIER: GOALS_SCORED,
+            A: [
                 {
-                    "value": 1,
-                    "element": 59
+                    VALUE: 1,
+                    ELEMENT: 59
                 },
                 {
-                    "value": 1,
-                    "element": 67
+                    VALUE: 1,
+                    ELEMENT: 67
                 },
                 {
-                    "value": 1,
-                    "element": 505
+                    VALUE: 1,
+                    ELEMENT: 505
                 }
             ],
-            "h": [
+            H: [
                 {
-                    "value": 1,
-                    "element": 321
-                }
-            ]
-        },
-        {
-            "identifier": "assists",
-            "a": [
-                {
-                    "value": 1,
-                    "element": 65
-                },
-                {
-                    "value": 1,
-                    "element": 476
-                },
-                {
-                    "value": 1,
-                    "element": 494
-                }
-            ],
-            "h": [
-                {
-                    "value": 1,
-                    "element": 437
+                    VALUE: 1,
+                    ELEMENT: 321
                 }
             ]
         },
         {
-            "identifier": "own_goals",
-            "a": [
-
-            ],
-            "h": [
-
-            ]
-        },
-        {
-            "identifier": "penalties_saved",
-            "a": [
-
-            ],
-            "h": [
-
-            ]
-        },
-        {
-            "identifier": "penalties_missed",
-            "a": [
-
-            ],
-            "h": [
-
-            ]
-        },
-        {
-            "identifier": "yellow_cards",
-            "a": [
+            IDENTIFIER: ASSISTS,
+            A: [
                 {
-                    "value": 1,
-                    "element": 82
+                    VALUE: 1,
+                    ELEMENT: 65
                 },
                 {
-                    "value": 1,
-                    "element": 446
+                    VALUE: 1,
+                    ELEMENT: 476
                 },
                 {
-                    "value": 1,
-                    "element": 505
+                    VALUE: 1,
+                    ELEMENT: 494
                 }
             ],
-            "h": [
+            H: [
                 {
-                    "value": 1,
-                    "element": 328
+                    VALUE: 1,
+                    ELEMENT: 437
                 }
             ]
         },
         {
-            "identifier": "red_cards",
-            "a": [
+            IDENTIFIER: OWN_GOALS,
+            A: [
 
             ],
-            "h": [
-
-            ]
-        },
-        {
-            "identifier": "saves",
-            "a": [
-                {
-                    "value": 6,
-                    "element": 494
-                }
-            ],
-            "h": [
+            H: [
 
             ]
         },
         {
-            "identifier": "bonus",
-            "a": [
+            IDENTIFIER: PENALTIES_SAVED,
+            A: [
+
+            ],
+            H: [
+
+            ]
+        },
+        {
+            IDENTIFIER: PENALTIES_MISSED,
+            A: [
+
+            ],
+            H: [
+
+            ]
+        },
+        {
+            IDENTIFIER: YELLOW_CARDS,
+            A: [
                 {
-                    "value": 3,
-                    "element": 494
+                    VALUE: 1,
+                    ELEMENT: 82
                 },
                 {
-                    "value": 1,
-                    "element": 67
+                    VALUE: 1,
+                    ELEMENT: 446
+                },
+                {
+                    VALUE: 1,
+                    ELEMENT: 505
                 }
             ],
-            "h": [
+            H: [
                 {
-                    "value": 2,
-                    "element": 321
+                    VALUE: 1,
+                    ELEMENT: 328
                 }
             ]
         },
         {
-            "identifier": "bps",
-            "a": [
+            IDENTIFIER: RED_CARDS,
+            A: [
+
+            ],
+            H: [
+
+            ]
+        },
+        {
+            IDENTIFIER: SAVES,
+            A: [
                 {
-                    "value": 34,
-                    "element": 494
-                },
-                {
-                    "value": 30,
-                    "element": 67
-                },
-                {
-                    "value": 26,
-                    "element": 59
-                },
-                {
-                    "value": 25,
-                    "element": 65
-                },
-                {
-                    "value": 23,
-                    "element": 476
-                },
-                {
-                    "value": 23,
-                    "element": 505
-                },
-                {
-                    "value": 14,
-                    "element": 58
-                },
-                {
-                    "value": 7,
-                    "element": 82
-                },
-                {
-                    "value": 6,
-                    "element": 446
-                },
-                {
-                    "value": 4,
-                    "element": 79
-                },
-                {
-                    "value": 3,
-                    "element": 75
-                },
-                {
-                    "value": 3,
-                    "element": 80
-                },
-                {
-                    "value": 2,
-                    "element": 68
+                    VALUE: 6,
+                    ELEMENT: 494
                 }
             ],
-            "h": [
+            H: [
+
+            ]
+        },
+        {
+            IDENTIFIER: BONUS,
+            A: [
                 {
-                    "value": 31,
-                    "element": 321
+                    VALUE: 3,
+                    ELEMENT: 494
                 },
                 {
-                    "value": 23,
-                    "element": 328
+                    VALUE: 1,
+                    ELEMENT: 67
+                }
+            ],
+            H: [
+                {
+                    VALUE: 2,
+                    ELEMENT: 321
+                }
+            ]
+        },
+        {
+            IDENTIFIER: BPS,
+            A: [
+                {
+                    VALUE: 34,
+                    ELEMENT: 494
                 },
                 {
-                    "value": 17,
-                    "element": 437
+                    VALUE: 30,
+                    ELEMENT: 67
                 },
                 {
-                    "value": 16,
-                    "element": 486
+                    VALUE: 26,
+                    ELEMENT: 59
                 },
                 {
-                    "value": 14,
-                    "element": 304
+                    VALUE: 25,
+                    ELEMENT: 65
                 },
                 {
-                    "value": 14,
-                    "element": 508
+                    VALUE: 23,
+                    ELEMENT: 476
                 },
                 {
-                    "value": 13,
-                    "element": 307
+                    VALUE: 23,
+                    ELEMENT: 505
                 },
                 {
-                    "value": 9,
-                    "element": 320
+                    VALUE: 14,
+                    ELEMENT: 58
                 },
                 {
-                    "value": 9,
-                    "element": 325
+                    VALUE: 7,
+                    ELEMENT: 82
                 },
                 {
-                    "value": 7,
-                    "element": 319
+                    VALUE: 6,
+                    ELEMENT: 446
                 },
                 {
-                    "value": 6,
-                    "element": 305
+                    VALUE: 4,
+                    ELEMENT: 79
                 },
                 {
-                    "value": 4,
-                    "element": 313
+                    VALUE: 3,
+                    ELEMENT: 75
                 },
                 {
-                    "value": 3,
-                    "element": 532
+                    VALUE: 3,
+                    ELEMENT: 80
                 },
                 {
-                    "value": 2,
-                    "element": 323
+                    VALUE: 2,
+                    ELEMENT: 68
+                }
+            ],
+            H: [
+                {
+                    VALUE: 31,
+                    ELEMENT: 321
+                },
+                {
+                    VALUE: 23,
+                    ELEMENT: 328
+                },
+                {
+                    VALUE: 17,
+                    ELEMENT: 437
+                },
+                {
+                    VALUE: 16,
+                    ELEMENT: 486
+                },
+                {
+                    VALUE: 14,
+                    ELEMENT: 304
+                },
+                {
+                    VALUE: 14,
+                    ELEMENT: 508
+                },
+                {
+                    VALUE: 13,
+                    ELEMENT: 307
+                },
+                {
+                    VALUE: 9,
+                    ELEMENT: 320
+                },
+                {
+                    VALUE: 9,
+                    ELEMENT: 325
+                },
+                {
+                    VALUE: 7,
+                    ELEMENT: 319
+                },
+                {
+                    VALUE: 6,
+                    ELEMENT: 305
+                },
+                {
+                    VALUE: 4,
+                    ELEMENT: 313
+                },
+                {
+                    VALUE: 3,
+                    ELEMENT: 532
+                },
+                {
+                    VALUE: 2,
+                    ELEMENT: 323
                 }
             ]
         }
     ],
-    "team_h_difficulty": 2,
-    "team_a_difficulty": 2
+    TEAM_HOME_DIFFICULTY: 2,
+    TEAM_AWAY_DIFFICULTY: 2
 }
+
 fixture_data_not_finished = {
-    "code": 1059760,
-    "event": 6,
-    "finished": False,
-    "finished_provisional": False,
-    "id": 59,
-    "kickoff_time": "2019-09-20T19:00:00Z",
-    "minutes": 90,
-    "provisional_start_time": False,
-    "started": True,
-    "team_a": 3,
-    "team_a_score": 3,
-    "team_h": 16,
-    "team_h_score": 1,
-    "stats": [
+    CODE: 1059760,
+    EVENT: 6,
+    FINISHED: False,
+    FINISHED_PROVISIONAL: False,
+    ID: 59,
+    KICKOFF_TIME: "2019-09-20T19:00:00Z",
+    MINUTES: 90,
+    PROVISIONAL_START_TIME: False,
+    STARTED: True,
+    TEAM_AWAY: 3,
+    TEAM_AWAY_SCORE: 3,
+    TEAM_HOME: 16,
+    TEAM_HOME_SCORE: 1,
+    STATS: [
         {
-            "identifier": "goals_scored",
-            "a": [
+            IDENTIFIER: GOALS_SCORED,
+            A: [
                 {
-                    "value": 1,
-                    "element": 59
+                    VALUE: 1,
+                    ELEMENT: 59
                 },
                 {
-                    "value": 1,
-                    "element": 67
+                    VALUE: 1,
+                    ELEMENT: 67
                 },
                 {
-                    "value": 1,
-                    "element": 505
+                    VALUE: 1,
+                    ELEMENT: 505
                 }
             ],
-            "h": [
+            H: [
                 {
-                    "value": 1,
-                    "element": 321
-                }
-            ]
-        },
-        {
-            "identifier": "assists",
-            "a": [
-                {
-                    "value": 1,
-                    "element": 65
-                },
-                {
-                    "value": 1,
-                    "element": 476
-                },
-                {
-                    "value": 1,
-                    "element": 494
-                }
-            ],
-            "h": [
-                {
-                    "value": 1,
-                    "element": 437
+                    VALUE: 1,
+                    ELEMENT: 321
                 }
             ]
         },
         {
-            "identifier": "own_goals",
-            "a": [
-
-            ],
-            "h": [
-
-            ]
-        },
-        {
-            "identifier": "penalties_saved",
-            "a": [
-
-            ],
-            "h": [
-
-            ]
-        },
-        {
-            "identifier": "penalties_missed",
-            "a": [
-
-            ],
-            "h": [
-
-            ]
-        },
-        {
-            "identifier": "yellow_cards",
-            "a": [
+            IDENTIFIER: ASSISTS,
+            A: [
                 {
-                    "value": 1,
-                    "element": 82
+                    VALUE: 1,
+                    ELEMENT: 65
                 },
                 {
-                    "value": 1,
-                    "element": 446
+                    VALUE: 1,
+                    ELEMENT: 476
                 },
                 {
-                    "value": 1,
-                    "element": 505
+                    VALUE: 1,
+                    ELEMENT: 494
                 }
             ],
-            "h": [
+            H: [
                 {
-                    "value": 1,
-                    "element": 328
+                    VALUE: 1,
+                    ELEMENT: 437
                 }
             ]
         },
         {
-            "identifier": "red_cards",
-            "a": [
+            IDENTIFIER: OWN_GOALS,
+            A: [
 
             ],
-            "h": [
-
-            ]
-        },
-        {
-            "identifier": "saves",
-            "a": [
-                {
-                    "value": 6,
-                    "element": 494
-                }
-            ],
-            "h": [
+            H: [
 
             ]
         },
         {
-            "identifier": "bonus",
-            "a": [],
-            "h": []
+            IDENTIFIER: PENALTIES_SAVED,
+            A: [
+
+            ],
+            H: [
+
+            ]
         },
         {
-            "identifier": "bps",
-            "a": [
+            IDENTIFIER: PENALTIES_MISSED,
+            A: [
+
+            ],
+            H: [
+
+            ]
+        },
+        {
+            IDENTIFIER: YELLOW_CARDS,
+            A: [
                 {
-                    "value": 34,
-                    "element": 494
+                    VALUE: 1,
+                    ELEMENT: 82
                 },
                 {
-                    "value": 30,
-                    "element": 67
+                    VALUE: 1,
+                    ELEMENT: 446
                 },
                 {
-                    "value": 26,
-                    "element": 59
-                },
-                {
-                    "value": 25,
-                    "element": 65
-                },
-                {
-                    "value": 23,
-                    "element": 476
-                },
-                {
-                    "value": 23,
-                    "element": 505
-                },
-                {
-                    "value": 14,
-                    "element": 58
-                },
-                {
-                    "value": 7,
-                    "element": 82
-                },
-                {
-                    "value": 6,
-                    "element": 446
-                },
-                {
-                    "value": 4,
-                    "element": 79
-                },
-                {
-                    "value": 3,
-                    "element": 75
-                },
-                {
-                    "value": 3,
-                    "element": 80
-                },
-                {
-                    "value": 2,
-                    "element": 68
+                    VALUE: 1,
+                    ELEMENT: 505
                 }
             ],
-            "h": [
+            H: [
                 {
-                    "value": 31,
-                    "element": 321
+                    VALUE: 1,
+                    ELEMENT: 328
+                }
+            ]
+        },
+        {
+            IDENTIFIER: RED_CARDS,
+            A: [
+
+            ],
+            H: [
+
+            ]
+        },
+        {
+            IDENTIFIER: SAVES,
+            A: [
+                {
+                    VALUE: 6,
+                    ELEMENT: 494
+                }
+            ],
+            H: [
+
+            ]
+        },
+        {
+            IDENTIFIER: BONUS,
+            A: [],
+            H: []
+        },
+        {
+            IDENTIFIER: BPS,
+            A: [
+                {
+                    VALUE: 34,
+                    ELEMENT: 494
                 },
                 {
-                    "value": 23,
-                    "element": 328
+                    VALUE: 30,
+                    ELEMENT: 67
                 },
                 {
-                    "value": 17,
-                    "element": 437
+                    VALUE: 26,
+                    ELEMENT: 59
                 },
                 {
-                    "value": 16,
-                    "element": 486
+                    VALUE: 25,
+                    ELEMENT: 65
                 },
                 {
-                    "value": 14,
-                    "element": 304
+                    VALUE: 23,
+                    ELEMENT: 476
                 },
                 {
-                    "value": 14,
-                    "element": 508
+                    VALUE: 23,
+                    ELEMENT: 505
                 },
                 {
-                    "value": 13,
-                    "element": 307
+                    VALUE: 14,
+                    ELEMENT: 58
                 },
                 {
-                    "value": 9,
-                    "element": 320
+                    VALUE: 7,
+                    ELEMENT: 82
                 },
                 {
-                    "value": 9,
-                    "element": 325
+                    VALUE: 6,
+                    ELEMENT: 446
                 },
                 {
-                    "value": 7,
-                    "element": 319
+                    VALUE: 4,
+                    ELEMENT: 79
                 },
                 {
-                    "value": 6,
-                    "element": 305
+                    VALUE: 3,
+                    ELEMENT: 75
                 },
                 {
-                    "value": 4,
-                    "element": 313
+                    VALUE: 3,
+                    ELEMENT: 80
                 },
                 {
-                    "value": 3,
-                    "element": 532
+                    VALUE: 2,
+                    ELEMENT: 68
+                }
+            ],
+            H: [
+                {
+                    VALUE: 31,
+                    ELEMENT: 321
                 },
                 {
-                    "value": 2,
-                    "element": 323
+                    VALUE: 23,
+                    ELEMENT: 328
+                },
+                {
+                    VALUE: 17,
+                    ELEMENT: 437
+                },
+                {
+                    VALUE: 16,
+                    ELEMENT: 486
+                },
+                {
+                    VALUE: 14,
+                    ELEMENT: 304
+                },
+                {
+                    VALUE: 14,
+                    ELEMENT: 508
+                },
+                {
+                    VALUE: 13,
+                    ELEMENT: 307
+                },
+                {
+                    VALUE: 9,
+                    ELEMENT: 320
+                },
+                {
+                    VALUE: 9,
+                    ELEMENT: 325
+                },
+                {
+                    VALUE: 7,
+                    ELEMENT: 319
+                },
+                {
+                    VALUE: 6,
+                    ELEMENT: 305
+                },
+                {
+                    VALUE: 4,
+                    ELEMENT: 313
+                },
+                {
+                    VALUE: 3,
+                    ELEMENT: 532
+                },
+                {
+                    VALUE: 2,
+                    ELEMENT: 323
                 }
             ]
         }
     ],
-    "team_h_difficulty": 2,
-    "team_a_difficulty": 2
+    TEAM_HOME_DIFFICULTY: 2,
+    TEAM_AWAY_DIFFICULTY: 2
 }
 
 
-class TestFixture(object):
+class TestFixtureFinished:
     @staticmethod
     def test_init():
-        fixture = Fixture(fixture_data)
-        for k, v in fixture_data.items():
-            if k != 'stats':
-                assert getattr(fixture, k) == v
+        fixture = Fixture(fixture_data_finished)
+        assert fixture.code == 1059760
+        assert fixture.event == 6
+        assert fixture.finished
+        assert fixture.finished_provisional
+        assert fixture.id == 59
+        assert fixture.kickoff_time == '2019-09-20T19:00:00Z'
+        assert fixture.minutes == 90
+        assert not fixture.provisional_start_time
+        assert fixture.started
+        assert fixture.team_away == 3
+        assert fixture.team_away_difficulty == 2
+        assert fixture.team_away_score == 3
+        assert fixture.team_home == 16
+        assert fixture.team_home_difficulty == 2
+        assert fixture.team_home_score == 1
+        assert fixture.assisters == FixturePlayers(
+            home=[PlayerEvent(player_id=437, value=1, team=16)],
+            away=[PlayerEvent(player_id=65, value=1, team=3), PlayerEvent(player_id=476, value=1, team=3),
+                  PlayerEvent(player_id=494, value=1, team=3)]
+        )
+        assert fixture.bonus() == FixturePlayers(
+            home=[PlayerEvent(player_id=321, value=2, team=16)],
+            away=[PlayerEvent(player_id=494, value=3, team=3), PlayerEvent(player_id=67, value=1, team=3)]
+        )
+        assert fixture.bps == FixturePlayers(
+            home=[PlayerEvent(player_id=321, value=31, team=16), PlayerEvent(player_id=328, value=23, team=16),
+                  PlayerEvent(player_id=437, value=17, team=16), PlayerEvent(player_id=486, value=16, team=16),
+                  PlayerEvent(player_id=304, value=14, team=16), PlayerEvent(player_id=508, value=14, team=16),
+                  PlayerEvent(player_id=307, value=13, team=16), PlayerEvent(player_id=320, value=9, team=16),
+                  PlayerEvent(player_id=325, value=9, team=16), PlayerEvent(player_id=319, value=7, team=16),
+                  PlayerEvent(player_id=305, value=6, team=16), PlayerEvent(player_id=313, value=4, team=16),
+                  PlayerEvent(player_id=532, value=3, team=16), PlayerEvent(player_id=323, value=2, team=16)],
+            away=[PlayerEvent(player_id=494, value=34, team=3), PlayerEvent(player_id=67, value=30, team=3),
+                  PlayerEvent(player_id=59, value=26, team=3), PlayerEvent(player_id=65, value=25, team=3),
+                  PlayerEvent(player_id=476, value=23, team=3), PlayerEvent(player_id=505, value=23, team=3),
+                  PlayerEvent(player_id=58, value=14, team=3), PlayerEvent(player_id=82, value=7, team=3),
+                  PlayerEvent(player_id=446, value=6, team=3), PlayerEvent(player_id=79, value=4, team=3),
+                  PlayerEvent(player_id=75, value=3, team=3), PlayerEvent(player_id=80, value=3, team=3),
+                  PlayerEvent(player_id=68, value=2, team=3)]
+        )
+        assert fixture.goalscorers == FixturePlayers(
+            home=[PlayerEvent(player_id=321, value=1, team=16)],
+            away=[PlayerEvent(player_id=59, value=1, team=3), PlayerEvent(player_id=67, value=1, team=3),
+                  PlayerEvent(player_id=505, value=1, team=3)]
+        )
+        assert fixture.own_goalscorers == EMPTY_FIXTURE_PLAYERS
+        assert fixture.penalty_misses == EMPTY_FIXTURE_PLAYERS
+        assert fixture.penalty_saves == EMPTY_FIXTURE_PLAYERS
+        assert fixture.red_cards == EMPTY_FIXTURE_PLAYERS
+        assert fixture.saves == FixturePlayers(
+            home=[],
+            away=[PlayerEvent(player_id=494, value=6, team=3)]
+        )
+        assert fixture.yellow_cards == FixturePlayers(
+            home=[PlayerEvent(player_id=328, value=1, team=16)],
+            away=[PlayerEvent(player_id=82, value=1, team=3), PlayerEvent(player_id=446, value=1, team=3),
+                  PlayerEvent(player_id=505, value=1, team=3)]
+        )
 
+
+class TestFixtureUnfinished:
     @staticmethod
-    def _do_test_not_finished(fixture, method):
-        fixture.finished = False
-        fixture.stats['bonus']['a'] = []
-        fixture.stats['bonus']['h'] = []
-        data_dict = getattr(fixture, method)()
-        assert isinstance(data_dict, dict)
-        assert len(data_dict) == 2
-
-    @staticmethod
-    def _do_test_finished(fixture, method):
-        data_dict = getattr(fixture, method)()
-        assert isinstance(data_dict, dict)
-        assert tuple(data_dict.keys()) == ('a', 'h')
-        assert isinstance(data_dict['a'], list)
-        assert isinstance(data_dict['h'], list)
-        assert all([isinstance(d, dict) for d in data_dict['a']])
-        assert all([isinstance(d, dict) for d in data_dict['h']])
-        assert all([tuple(d.keys()) == ('value', 'element') for d in data_dict['a']])
-        assert all([tuple(d.keys()) == ('value', 'element') for d in data_dict['h']])
-        assert all([all([isinstance(v, int) for v in d.values()]) for d in data_dict['a']])
-        assert all([all([isinstance(v, int) for v in d.values()]) for d in data_dict['h']])
-
-    def test_get_goalscorers_not_finished(self, fixture):
-        self._do_test_not_finished(fixture, "get_goalscorers")
-
-    def test_get_goalscorers_finished(self, fixture):
-        self._do_test_finished(fixture, "get_goalscorers")
-
-    def test_get_assisters_not_finished(self, fixture):
-        self._do_test_not_finished(fixture, "get_assisters")
-
-    def test_get_assisters_finished(self, fixture):
-        self._do_test_finished(fixture, "get_assisters")
-
-    def test_get_own_goalscorers_not_finished(self, fixture):
-        self._do_test_not_finished(fixture, "get_own_goalscorers")
-
-    def test_get_own_goalscorers_finished(self, fixture):
-        self._do_test_finished(fixture, "get_own_goalscorers")
-
-    def test_get_yellow_cards_not_finished(self, fixture):
-        self._do_test_not_finished(fixture, "get_yellow_cards")
-
-    def test_get_yellow_cards(self, fixture):
-        self._do_test_finished(fixture, "get_yellow_cards")
-
-    def test_get_red_cards_not_finished(self, fixture):
-        self._do_test_not_finished(fixture, "get_red_cards")
-
-    def test_get_red_cards_finished(self, fixture):
-        self._do_test_finished(fixture, "get_red_cards")
-
-    def test_get_penalty_saves_not_finished(self, fixture):
-        self._do_test_not_finished(fixture, "get_penalty_saves")
-
-    def test_get_penalty_saves_finished(self, fixture):
-        self._do_test_finished(fixture, "get_penalty_saves")
-
-    def test_get_penalty_misses_not_finished(self, fixture):
-        self._do_test_not_finished(fixture, "get_penalty_misses")
-
-    def test_get_penalty_misses_finished(self, fixture):
-        self._do_test_finished(fixture, "get_penalty_misses")
-
-    def test_get_saves_not_finished(self, fixture):
-        self._do_test_not_finished(fixture, "get_saves")
-
-    def test_get_saves_finished(self, fixture):
-        self._do_test_finished(fixture, "get_saves")
-
-    def test_get_bonus_not_finished(self, fixture):
-        self._do_test_not_finished(fixture, "get_bonus")
-
-    def test_get_bonus_finished(self, fixture):
-        self._do_test_finished(fixture, "get_bonus")
-
-    def test_get_bps_not_finished(self, fixture):
-        self._do_test_not_finished(fixture, "get_bps")
-
-    def test_get_bps_finished(self, fixture):
-        self._do_test_finished(fixture, "get_bps")
+    def test_init():
+        fixture = Fixture(fixture_data_not_finished)
+        assert fixture.code == 1059760
+        assert fixture.event == 6
+        assert not fixture.finished
+        assert not fixture.finished_provisional
+        assert fixture.id == 59
+        assert fixture.kickoff_time == '2019-09-20T19:00:00Z'
+        assert fixture.minutes == 90
+        assert not fixture.provisional_start_time
+        assert fixture.started
+        assert fixture.team_away == 3
+        assert fixture.team_away_difficulty == 2
+        assert fixture.team_away_score == 3
+        assert fixture.team_home == 16
+        assert fixture.team_home_difficulty == 2
+        assert fixture.team_home_score == 1
+        assert fixture.assisters == FixturePlayers(
+            home=[PlayerEvent(player_id=437, value=1, team=16)],
+            away=[PlayerEvent(player_id=65, value=1, team=3), PlayerEvent(player_id=476, value=1, team=3),
+                  PlayerEvent(player_id=494, value=1, team=3)]
+        )
+        assert fixture.bonus() == EMPTY_FIXTURE_PLAYERS
+        assert fixture.bps == FixturePlayers(
+            home=[PlayerEvent(player_id=321, value=31, team=16), PlayerEvent(player_id=328, value=23, team=16),
+                  PlayerEvent(player_id=437, value=17, team=16), PlayerEvent(player_id=486, value=16, team=16),
+                  PlayerEvent(player_id=304, value=14, team=16), PlayerEvent(player_id=508, value=14, team=16),
+                  PlayerEvent(player_id=307, value=13, team=16), PlayerEvent(player_id=320, value=9, team=16),
+                  PlayerEvent(player_id=325, value=9, team=16), PlayerEvent(player_id=319, value=7, team=16),
+                  PlayerEvent(player_id=305, value=6, team=16), PlayerEvent(player_id=313, value=4, team=16),
+                  PlayerEvent(player_id=532, value=3, team=16), PlayerEvent(player_id=323, value=2, team=16)],
+            away=[PlayerEvent(player_id=494, value=34, team=3), PlayerEvent(player_id=67, value=30, team=3),
+                  PlayerEvent(player_id=59, value=26, team=3), PlayerEvent(player_id=65, value=25, team=3),
+                  PlayerEvent(player_id=476, value=23, team=3), PlayerEvent(player_id=505, value=23, team=3),
+                  PlayerEvent(player_id=58, value=14, team=3), PlayerEvent(player_id=82, value=7, team=3),
+                  PlayerEvent(player_id=446, value=6, team=3), PlayerEvent(player_id=79, value=4, team=3),
+                  PlayerEvent(player_id=75, value=3, team=3), PlayerEvent(player_id=80, value=3, team=3),
+                  PlayerEvent(player_id=68, value=2, team=3)]
+        )
+        assert fixture.goalscorers == FixturePlayers(
+            home=[PlayerEvent(player_id=321, value=1, team=16)],
+            away=[PlayerEvent(player_id=59, value=1, team=3), PlayerEvent(player_id=67, value=1, team=3),
+                  PlayerEvent(player_id=505, value=1, team=3)]
+        )
+        assert fixture.own_goalscorers == EMPTY_FIXTURE_PLAYERS
+        assert fixture.penalty_misses == EMPTY_FIXTURE_PLAYERS
+        assert fixture.penalty_saves == EMPTY_FIXTURE_PLAYERS
+        assert fixture.red_cards == EMPTY_FIXTURE_PLAYERS
+        assert fixture.saves == FixturePlayers(
+            home=[],
+            away=[PlayerEvent(player_id=494, value=6, team=3)]
+        )
+        assert fixture.yellow_cards == FixturePlayers(
+            home=[PlayerEvent(player_id=328, value=1, team=16)],
+            away=[PlayerEvent(player_id=82, value=1, team=3), PlayerEvent(player_id=446, value=1, team=3),
+                  PlayerEvent(player_id=505, value=1, team=3)]
+        )
 
     @staticmethod
     def test_str(fixture):
         assert str(fixture) == "Southampton vs. Bournemouth - 2019-09-20T19:00:00Z"
+
+

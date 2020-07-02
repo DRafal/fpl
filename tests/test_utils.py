@@ -4,7 +4,7 @@ from fpl.utils import (chip_converter, get_current_gameweek, get_headers,
                        logged_in, position_converter, team_converter)
 
 
-class TestUtils(object):
+class TestUtils:
     async def test_get_current_gameweek(self, loop, fpl):
         current_gameweek = await get_current_gameweek(fpl.session)
         assert isinstance(current_gameweek, int)

@@ -1,72 +1,76 @@
-from fpl.models import Player, Team
-from tests.helper import AsyncMock
+from fpl.dictionaries.api_keywords import *
+from fpl.models import Player, Fixture
 
 team_data = {
-    "id": 1,
-    "current_event_fixture": [
-        {
-            "is_home": False,
-            "month": 2,
-            "event_day": 1,
-            "id": 254,
-            "day": 9,
-            "opponent": 10
-        }
-    ],
-    "next_event_fixture": [
-        {}
-    ],
-    "name": "Arsenal",
-    "code": 3,
-    "short_name": "ARS",
-    "unavailable": False,
-    "strength": 4,
-    "position": 0,
-    "played": 0,
-    "win": 0,
-    "loss": 0,
-    "draw": 0,
-    "points": 0,
-    "form": None,
-    "link_url": "",
-    "strength_overall_home": 1260,
-    "strength_overall_away": 1320,
-    "strength_attack_home": 1240,
-    "strength_attack_away": 1270,
-    "strength_defence_home": 1310,
-    "strength_defence_away": 1340,
-    "team_division": 1
+    ID: 1,
+    NAME: "Arsenal",
+    CODE: 3,
+    DRAW: 0,
+    SHORT_NAME: "ARS",
+    UNAVAILABLE: False,
+    STRENGTH: 4,
+    POSITION: 0,
+    PLAYED: 0,
+    WIN: 0,
+    LOSS: 0,
+    POINTS: 0,
+    FORM: None,
+    STRENGTH_OVERALL_HOME: 1260,
+    STRENGTH_OVERALL_AWAY: 1320,
+    STRENGTH_ATTACK_HOME: 1240,
+    STRENGTH_ATTACK_AWAY: 1270,
+    STRENGTH_DEFENCE_HOME: 1310,
+    STRENGTH_DEFENCE_AWAY: 1340,
+    TEAM_DIVISION: 1
 }
 
 
-class TestTeam(object):
-    def test_init(self):
-        session = None
-        team = Team(team_data, session)
-        assert team._session is session
-        for k, v in team_data.items():
-            assert getattr(team, k) == v
+class TestTeam:
+    @staticmethod
+    def test_init(loop, team):
+        assert team.code == 3
+        assert team.draw == 0
+        assert team.form is None
+        assert team.id == 1
+        assert team.loss == 0
+        assert team.name == 'Arsenal'
+        assert team.played == 0
+        assert team.points == 0
+        assert team.position == 0
+        assert team.short_name == 'ARS'
+        assert team.strength == 4
+        assert team.strength_attack_away == 1270
+        assert team.strength_attack_home == 1240
+        assert team.strength_defence_away == 1340
+        assert team.strength_defence_home == 1310
+        assert team.strength_overall_away == 1320
+        assert team.strength_overall_home == 1260
+        assert team.team_division == 1
+        assert not team.unavailable
+        assert team.win == 0
 
     @staticmethod
     def test_str(loop, team):
-        assert str(team) == getattr(team, "name")
+        assert str(team) == team.name
 
-    async def test_get_players_return_json_is_false(self, loop, team):
+    @staticmethod
+    async def test_get_players_return_json_is_false(loop, team):
         players = await team.get_players(return_json=False)
-        print(players)
         assert isinstance(players, list)
-        assert len(players) == len(team.players)
 
         for player in players:
             assert isinstance(player, Player)
-            assert getattr(player, "team") == getattr(team, "id")
+            assert player.team == team.id
 
-    async def test_get_players_return_json_is_true(self, loop, team):
+    @staticmethod
+    async def test_get_players_return_json_is_true(loop, team):
         players = await team.get_players(return_json=True)
         assert isinstance(players, list)
-        assert players == team.players
 
-    async def test_get_fixtures(self, loop, team):
-        fixtures = await team.get_fixtures(return_json=True)
+    @staticmethod
+    async def test_get_fixtures(loop, team):
+        fixtures = await team.get_team_fixtures(return_json=True)
+        assert len(fixtures) == 38
         assert isinstance(fixtures, list)
-        assert fixtures == team.fixtures
+        for fixture in fixtures:
+            assert isinstance(fixture, Fixture)

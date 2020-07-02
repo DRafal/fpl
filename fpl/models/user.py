@@ -3,107 +3,62 @@ import json
 
 import aiohttp
 from urllib3.util import response
+from typing import List
 
+from .match import H2HMatch
 from ..constants import API_URLS, MIN_GAMEWEEK, MAX_GAMEWEEK
+from ..dictionaries.api_keywords import *
 from ..utils import fetch, logged_in, post, get_headers
 
-is_c = "is_captain"
-is_vc = "is_vice_captain"
+
+class Kit:
+    def __init__(self, kit):
+        self.kit_shirt_type = kit.get(KIT_SHIRT_TYPE)
+        self.kit_shirt_base = kit.get(KIT_SHIRT_BASE)
+        self.kit_shirt_sleeves = kit.get(KIT_SHIRT_SLEEVES)
+        self.kit_shirt_secondary = kit.get(KIT_SHIRT_SECONDARY)
+        self.kit_shirt_logo = kit.get(KIT_SHIRT_LOGO)
+        self.kit_shorts = kit.get(KIT_SHORTS)
+        self.kit_socks_type = kit.get(KIT_SOCKS_TYPE)
+        self.kit_socks_base = kit.get(KIT_SOCKS_BASE)
+        self.kit_socks_secondary = kit.get(KIT_SOCKS_SECONDARY)
 
 
-def valid_gameweek(gameweek):
-    """Returns True if the gameweek is valid.
+class UserClassicLeague:
+    def __init__(self, classic_league):
+        self.admin_entry = classic_league.get(ADMIN_ENTRY)
+        self.closed = classic_league.get(CLOSED)
+        self.created = classic_league.get(CREATED)
+        self.entry_can_admin = classic_league.get(ENTRY_CAN_ADMIN)
+        self.entry_can_invite = classic_league.get(ENTRY_CAN_INVITE)
+        self.entry_can_leave = classic_league.get(ENTRY_CAN_LEAVE)
+        self.entry_last_rank = classic_league.get(ENTRY_LAST_RANK)
+        self.entry_rank = classic_league.get(ENTRY_RANK)
+        self.id = classic_league.get(ID)
+        self.league_type = classic_league.get(LEAGUE_TYPE)
+        self.max_entries = classic_league.get(MAX_ENTRIES)
+        self.name = classic_league.get(NAME)
+        self.rank = classic_league.get(RANK)
+        self.scoring = classic_league.get(SCORING)
+        self.short_name = classic_league.get(SHORT_NAME)
+        self.start_event = classic_league.get(START_EVENT)
 
-    :param gameweek: The gameweek.
-    :type gameweek: int or string
-    :raises ValueError: if gameweek is not a number between 1 and 38
-    """
-    gameweek = int(gameweek)
-    if (gameweek < MIN_GAMEWEEK) or (gameweek > MAX_GAMEWEEK):
-        raise ValueError(f"Gameweek must be a number between {MIN_GAMEWEEK} and {MAX_GAMEWEEK}.")
-    return True
-
-
-def _ids_to_lineup(player_ids, user_team):
-    """Helper for converting list of player IDs to usable lineup.
-
-    :param player_ids: List of player IDS.
-    :type player_ids: list
-    :param user_team: The user's current team.
-    :type user_team: list
-    :return: A usable lineup.
-    :rtype: list
-    """
-    return [next(player for player in user_team
-                 if player["element"] == player_id)
-            for player_id in player_ids]
+    def __repr__(self):
+        return f'UserClassicLeague(name={self.name})'
 
 
-def _id_to_element_type(player_id, players):
-    """Helper for converting a player's ID to their respective element type:
-    1, 2, 3 or 4.
+class UserCupStatus:
+    def __init__(self, status_data):
+        self.qualification_event = status_data.get(QUALIFICATION_EVENT)
+        self.qualification_numbers = status_data.get(QUALIFICATION_NUMBERS)
+        self.qualification_rank = status_data.get(QUALIFICATION_RANK)
+        self.qualification_state = status_data.get(QUALIFICATION_STATE)
 
-    :param player_id: A player's ID.
-    :type player_id: int
-    :param players: List of all players in the Fantasy Premier League.
-    :type players: list
-    :return: The player's element type.
-    :rtype: int
-    """
-    player = next(player for player in players
-                  if player["id"] == player_id)
-    return player["element_type"]
+    def __repr__(self):
+        return f'UserCupStatus(qualification_state={self.qualification_state})'
 
 
-def _set_element_type(lineup, players):
-    """Helper for setting the players' element types.
-
-    :param lineup: The user's current lineup.
-    :type lineup: list
-    :param players: List of all players in the Fantasy Premier League.
-    :type players: list
-    """
-    for player in lineup:
-        element_type = _id_to_element_type(player["element"], players)
-        player["element_type"] = element_type
-
-
-def _set_captain(lineup, captain, captain_type, player_ids):
-    """Sets the given captain's captain_type to True.
-
-    :param lineup: List of players.
-    :type lineup: list
-    :param captain: ID of the captain.
-    :type captain: int or str
-    :param captain_type: The captain type: 'is_captain' or 'is_vice_captain'.
-    :type captain_type: string
-    :param player_ids: List of the team's players' IDs.
-    :type player_ids: list
-    """
-    if captain and captain not in player_ids:
-        raise ValueError(
-            "Cannot (vice) captain player who isn't in user's team.")
-
-    current_captain = next(player for player in lineup if player[captain_type])
-    chosen_captain = next(player for player in lineup
-                          if player["element"] == captain)
-
-    # If the chosen captain is already a (vice) captain, then give his previous
-    # role to the current (vice) captain.
-    if chosen_captain[is_c] or chosen_captain[is_vc]:
-        current_captain[is_c], chosen_captain[is_c] = (
-            chosen_captain[is_c], current_captain[is_c])
-        current_captain[is_vc], chosen_captain[is_vc] = (
-            chosen_captain[is_vc], current_captain[is_vc])
-
-    for player in lineup:
-        player[captain_type] = False
-
-        if player["element"] == captain:
-            player[captain_type] = True
-
-
-class User():
+class User:
     """A class representing a user of the Fantasy Premier League.
 
     >>> from fpl import FPL
@@ -122,8 +77,39 @@ class User():
 
     def __init__(self, user_information, session):
         self._session = session
-        for k, v in user_information.items():
-            setattr(self, k, v)
+        self.current_event = user_information.get(CURRENT_EVENT)
+        self.favourite_team = user_information.get(FAVOURITE_TEAM)
+        self.id = user_information.get(ID)
+        self.joined_time = user_information.get(JOINED_TIME)
+        self.last_deadline_bank = user_information.get(LAST_DEADLINE_BANK)
+        self.last_deadline_total_transfers = user_information.get(LAST_DEADLINE_TOTAL_TRANSFERS)
+        self.last_deadline_value = user_information.get(LAST_DEADLINE_VALUE)
+        self.name = user_information.get(NAME)
+        self.player_first_name = user_information.get(PLAYER_FIRST_NAME)
+        self.player_last_name = user_information.get(PLAYER_LAST_NAME)
+        self.player_region_id = user_information.get(PLAYER_REGION_ID)
+        self.player_region_iso_code_long = user_information.get(PLAYER_REGION_ISO_CODE_LONG)
+        self.player_region_iso_code_short = user_information.get(PLAYER_REGION_ISO_CODE_SHORT)
+        self.player_region_name = user_information.get(PLAYER_REGION_NAME)
+        self.started_event = user_information.get(STARTED_EVENT)
+        self.summary_event_points = user_information.get(SUMMARY_EVENT_POINTS)
+        self.summary_event_rank = user_information.get(SUMMARY_EVENT_RANK)
+        self.summary_overall_points = user_information.get(SUMMARY_OVERALL_POINTS)
+        self.summary_overall_rank = user_information.get(SUMMARY_OVERALL_RANK)
+        self.leagues = user_information.get(LEAGUES)
+        self.kit = Kit(json.loads(user_information.get(KIT)))  # it looks like a bug in API, since it's a dict in string
+
+    @property
+    def classic_leagues(self) -> List[UserClassicLeague]:
+        return [UserClassicLeague(league) for league in self.leagues[CLASSIC]]
+
+    @property
+    def cup_matches(self) -> List[H2HMatch]:
+        return [H2HMatch(match) for match in self.leagues[CUP][MATCHES]]
+
+    @property
+    def cup_status(self) -> UserCupStatus:
+        return UserCupStatus(self.leagues[CUP][STATUS])
 
     async def get_gameweek_history(self, gameweek=None):
         """Returns a list containing the gameweek history of the user.
@@ -208,10 +194,10 @@ class User():
             picks = self._picks
         else:
             tasks = [asyncio.ensure_future(
-                     fetch(self._session,
-                           API_URLS["user_picks"].format(self.id, gameweek)))
-                     for gameweek in range(self.started_event,
-                                           self.current_event + 1)]
+                fetch(self._session,
+                      API_URLS["user_picks"].format(self.id, gameweek)))
+                for gameweek in range(self.started_event,
+                                      self.current_event + 1)]
             picks = await asyncio.gather(*tasks)
             self._picks = picks
 
@@ -286,9 +272,9 @@ class User():
             picks = self._picks
         else:
             tasks = [asyncio.ensure_future(
-                     fetch(self._session,
-                           API_URLS["user_picks"].format(self.id, gameweek)))
-                     for gameweek in range(1, self.current_event + 1)]
+                fetch(self._session,
+                      API_URLS["user_picks"].format(self.id, gameweek)))
+                for gameweek in range(1, self.current_event + 1)]
             picks = await asyncio.gather(*tasks)
             self._picks = picks
 
@@ -316,9 +302,9 @@ class User():
             picks = self._picks
         else:
             tasks = [asyncio.ensure_future(
-                     fetch(self._session,
-                           API_URLS["user_picks"].format(self.id, gameweek)))
-                     for gameweek in range(1, self.current_event + 1)]
+                fetch(self._session,
+                      API_URLS["user_picks"].format(self.id, gameweek)))
+                for gameweek in range(1, self.current_event + 1)]
             picks = await asyncio.gather(*tasks)
             self._picks = picks
 
@@ -342,10 +328,10 @@ class User():
             picks = self._picks
         else:
             tasks = [asyncio.ensure_future(
-                     fetch(self._session,
-                           API_URLS["user_picks"].format(self.id, gameweek)))
-                     for gameweek in range(self.started_event, 
-                                           self.current_event + 1)]
+                fetch(self._session,
+                      API_URLS["user_picks"].format(self.id, gameweek)))
+                for gameweek in range(self.started_event,
+                                      self.current_event + 1)]
             picks = await asyncio.gather(*tasks)
             self._picks = picks
 
@@ -625,14 +611,14 @@ class User():
             # Swap position and (vice) captaincy
             lineup[out_i]["position"], lineup[in_i]["position"] = (
                 lineup[in_i]["position"], lineup[out_i]["position"])
-            lineup[out_i][is_c], lineup[in_i][is_c] = (
-                lineup[in_i][is_c], lineup[out_i][is_c])
-            lineup[out_i][is_vc], lineup[in_i][is_vc] = (
-                lineup[in_i][is_vc], lineup[out_i][is_vc])
+            lineup[out_i][IS_CAPTAIN], lineup[in_i][IS_CAPTAIN] = (
+                lineup[in_i][IS_CAPTAIN], lineup[out_i][IS_CAPTAIN])
+            lineup[out_i][IS_VICE_CAPTAIN], lineup[in_i][IS_VICE_CAPTAIN] = (
+                lineup[in_i][IS_VICE_CAPTAIN], lineup[out_i][IS_VICE_CAPTAIN])
 
             starters, subs = lineup[:11], lineup[11:]
             new_starters = sorted(starters, key=lambda x: (
-                x["element_type"] - 1) * 100 + x["position"])
+                                                                  x["element_type"] - 1) * 100 + x["position"])
             lineup = new_starters + subs
 
             for position, player in enumerate(lineup):
@@ -641,8 +627,8 @@ class User():
         new_lineup = [{
             "element": player["element"],
             "position": player["position"],
-            "is_captain": player[is_c],
-            "is_vice_captain": player[is_vc]
+            "is_captain": player[IS_CAPTAIN],
+            "is_vice_captain": player[IS_VICE_CAPTAIN]
         } for player in lineup]
 
         return new_lineup
@@ -679,7 +665,7 @@ class User():
         :param captain: ID of the captain.
         :type captain: int
         """
-        await self._captain_helper(captain, is_c)
+        await self._captain_helper(captain, IS_CAPTAIN)
 
     async def vice_captain(self, vice_captain):
         """Set the vice captain of the user's team.
@@ -687,7 +673,7 @@ class User():
         :param vice_captain: ID of the vice captain.
         :type vice_captain: int
         """
-        await self._captain_helper(vice_captain, is_vc)
+        await self._captain_helper(vice_captain, IS_VICE_CAPTAIN)
 
     async def substitute(self, players_in, players_out, captain=None,
                          vice_captain=None):
@@ -727,10 +713,10 @@ class User():
 
         # Set new captain or vice captain if applicable
         if captain:
-            _set_captain(user_team, captain, is_c, team_ids)
+            _set_captain(user_team, captain, IS_CAPTAIN, team_ids)
 
         if vice_captain:
-            _set_captain(user_team, vice_captain, is_vc, team_ids)
+            _set_captain(user_team, vice_captain, IS_VICE_CAPTAIN, team_ids)
 
         lineup = await self._create_new_lineup(
             players_in, players_out, user_team)
@@ -740,3 +726,95 @@ class User():
     def __str__(self):
         return (f"{self.player_first_name} {self.player_last_name} - "
                 f"{self.player_region_name}")
+
+
+def valid_gameweek(gameweek):
+    """Returns True if the gameweek is valid.
+
+    :param gameweek: The gameweek.
+    :type gameweek: int or string
+    :raises ValueError: if gameweek is not a number between 1 and 38
+    """
+    gameweek = int(gameweek)
+    if (gameweek < MIN_GAMEWEEK) or (gameweek > MAX_GAMEWEEK):
+        raise ValueError(f"Gameweek must be a number between {MIN_GAMEWEEK} and {MAX_GAMEWEEK}.")
+    return True
+
+
+def _ids_to_lineup(player_ids, user_team):
+    """Helper for converting list of player IDs to usable lineup.
+
+    :param player_ids: List of player IDS.
+    :type player_ids: list
+    :param user_team: The user's current team.
+    :type user_team: list
+    :return: A usable lineup.
+    :rtype: list
+    """
+    return [next(player for player in user_team
+                 if player["element"] == player_id)
+            for player_id in player_ids]
+
+
+def _id_to_element_type(player_id, players):
+    """Helper for converting a player's ID to their respective element type:
+    1, 2, 3 or 4.
+
+    :param player_id: A player's ID.
+    :type player_id: int
+    :param players: List of all players in the Fantasy Premier League.
+    :type players: list
+    :return: The player's element type.
+    :rtype: int
+    """
+    player = next(player for player in players
+                  if player["id"] == player_id)
+    return player["element_type"]
+
+
+def _set_element_type(lineup, players):
+    """Helper for setting the players' element types.
+
+    :param lineup: The user's current lineup.
+    :type lineup: list
+    :param players: List of all players in the Fantasy Premier League.
+    :type players: list
+    """
+    for player in lineup:
+        element_type = _id_to_element_type(player["element"], players)
+        player["element_type"] = element_type
+
+
+def _set_captain(lineup, captain, captain_type, player_ids):
+    """Sets the given captain's captain_type to True.
+
+    :param lineup: List of players.
+    :type lineup: list
+    :param captain: ID of the captain.
+    :type captain: int or str
+    :param captain_type: The captain type: 'is_captain' or 'is_vice_captain'.
+    :type captain_type: string
+    :param player_ids: List of the team's players' IDs.
+    :type player_ids: list
+    """
+    if captain and captain not in player_ids:
+        raise ValueError(
+            "Cannot (vice) captain player who isn't in user's team.")
+
+    current_captain = next(player for player in lineup if player[captain_type])
+    chosen_captain = next(player for player in lineup
+                          if player["element"] == captain)
+
+    # If the chosen captain is already a (vice) captain, then give his previous
+    # role to the current (vice) captain.
+    if chosen_captain[IS_CAPTAIN] or chosen_captain[IS_VICE_CAPTAIN]:
+        current_captain[IS_CAPTAIN], chosen_captain[IS_CAPTAIN] = (
+            chosen_captain[IS_CAPTAIN], current_captain[IS_CAPTAIN])
+        current_captain[IS_VICE_CAPTAIN], chosen_captain[IS_VICE_CAPTAIN] = (
+            chosen_captain[IS_VICE_CAPTAIN], current_captain[IS_VICE_CAPTAIN])
+
+    for player in lineup:
+        player[captain_type] = False
+
+        if player["element"] == captain:
+            player[captain_type] = True

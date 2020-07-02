@@ -137,6 +137,7 @@ def scale(value, upper, lower, min_, max_):
 
 def average(iterable):
     """Returns the average value of the iterable."""
+    iterable = list(filter(lambda i: i is not None, iterable))
     try:
         return sum(iterable) / float(len(iterable))
     except ZeroDivisionError:
